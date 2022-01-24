@@ -1,0 +1,2 @@
+# mobile-sdk-autotests
+
