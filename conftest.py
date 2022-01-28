@@ -1,13 +1,18 @@
+import base64
+import os
+import time
+from datetime import datetime
+
 import pytest
+from appium import webdriver
 
 from config.desired_capabilities import ANDROID, BROWSERSTACK, BROWSERSTACK_IOS
 from config.desired_capabilities import IOS
-from appium import webdriver
-import sys
 
 APP = None
 DEVICE = None
 DRIVER = None
+TEST_RAIL_RUN_ID = None
 
 
 def pytest_configure(config):
@@ -28,22 +33,26 @@ def pytest_addoption(parser):
 @pytest.fixture(scope="class")
 def driver(request):
     platform = {"ios": IOS, "android": ANDROID, "browserstack": BROWSERSTACK, "browserstack_ios": BROWSERSTACK_IOS}
-
     if DEVICE == "browserstack":
         if APP == "ios":
             request.cls.driver = webdriver.Remote("http://hub-cloud.browserstack.com/wd/hub",
-                                                       platform["browserstack_ios"])
+                                                  platform["browserstack_ios"])
         else:
             request.cls.driver = webdriver.Remote("http://hub-cloud.browserstack.com/wd/hub",
-                                                       platform["browserstack"])
+                                                  platform["browserstack"])
     else:
         request.cls.driver = webdriver.Remote("http://localhost:4723/wd/hub", platform[APP])
+
+        request.cls.driver.start_recording_screen(timeLimit=1200, videoType="h264", videoQuality="high")
         if APP == "android":
             request.cls.driver.hide_keyboard()
+
     yield
     if APP == "android":
         request.cls.driver.hide_keyboard()
+
     request.cls.driver.quit()
+
 
 # set up a hook to be able to check if a test has failed
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
@@ -69,12 +78,15 @@ def test_failed_check(request):
     elif request.node.rep_setup.passed:
         if request.node.rep_call.failed:
             driver = request.cls.driver
-            take_screenshot(driver, request.node.nodeid)
+            video_raw_data = request.cls.driver.stop_recording_screen()
+            take_record_video(request, video_raw_data)
             print("executing test failed", request.node.nodeid)
 
 
-# make a screenshot with a name of the test, date and time
-def take_screenshot(driver, nodeid):
-    time.sleep(1)
-    file_name = f'{nodeid}_{datetime.today().strftime("%Y-%m-%d_%H:%M")}.png'.replace("/", "_").replace("::", "__")
-    driver.save_screenshot(f'output/{file_name}')
+def take_record_video(request, video_rawdata):
+    video_name = f'{request.fspath.purebasename}_{time.strftime("%Y_%m_%d_%H%M%S")}'
+    filepath = os.path.join(f"PATH",
+                            video_name + ".mov")
+
+    with open(filepath, "wb+") as vd:
+        vd.write(base64.b64decode(video_rawdata))
