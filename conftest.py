@@ -44,6 +44,7 @@ def driver(request):
     yield
     request.cls.driver.quit()
     appium_service.stop()
+    close_simulator(APP)
 
 
 # set up a hook to be able to check if a test has failed
@@ -92,3 +93,9 @@ def pytest_collection_modifyitems(items):
         for testname in tests:
             if item.originalname == testname:
                 item.add_marker(pytestrail.case(tests[testname]))
+
+def close_simulator(emulator):
+    if emulator == "android":
+        os.system('adb emu kill')
+    else:
+        os.system('killall Simulator')
