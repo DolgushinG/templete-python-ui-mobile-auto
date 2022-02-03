@@ -10,35 +10,24 @@ from config.desired_capabilities import ANDROID
 from config.desired_capabilities import IOS
 
 APP = None
-DEVICE = None
-DRIVER = None
-TEST_RAIL_RUN_ID = None
 
 
 def pytest_configure(config):
     global APP
-    global DEVICE
     APP = config.getoption("--app")
-    DEVICE = config.getoption("--device")
+
 
 
 @pytest.hookimpl
 def pytest_addoption(parser):
     parser.addoption('--app', action='store', default="android", help="Choose App: ios or android")
-    parser.addoption('--device', action='store', default="emulator", help="Choose Device: simulator / emulator / real "
-                                                                          "device")
-    parser.addoption('--reset', action='store', default="false", help="Reset app true and false")
 
 
 @pytest.fixture(scope="class")
 def driver(request):
-    appium_service = AppiumService()
+     appium_service = AppiumService()
     appium_service.start()
-    time.sleep(2)
-    emulator = {"ios": "ios_emul.py", "android": "android_emul.py"}
-    subprocess.run(["python3", emulator[APP]])
-    time.sleep(2)
-    platform = {"ios": IOS, "android": ANDROID}
+    start_emul(APP)
     request.cls.driver = webdriver.Remote("http://localhost:4723/wd/hub", desired_capabilities=platform[APP])
     request.cls.driver.start_recording_screen(timeLimit=1200, videoType="h264", videoQuality="high")
     yield
