@@ -10,4 +10,5 @@ class Test:
         describe
         """
         payment_page = PaymentPage(self.driver)
-        payment_page.fill_field()
+        with allure.step('Заполняем поле'):
+            payment_page.fill_field('test')

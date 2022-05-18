@@ -1,15 +1,18 @@
-import base64
+import logging
 import os
-import time
-from datetime import datetime
 
 import pytest
+import urllib3
 from appium import webdriver
-
-from config.desired_capabilities import ANDROID
-from config.desired_capabilities import IOS
+from appium.webdriver.appium_service import AppiumService
+from config.desired_capabilities import platform
+from start_emul import start_emul
+from tools import take_record_video, remove_test_dir
 
 APP = None
+urllib3.disable_warnings()
+appium_service = AppiumService()
+logging.getLogger().setLevel(logging.INFO)
 
 
 def pytest_configure(config):
@@ -17,74 +20,74 @@ def pytest_configure(config):
     APP = config.getoption("--app")
 
 
-
 @pytest.hookimpl
 def pytest_addoption(parser):
     parser.addoption('--app', action='store', default="android", help="Choose App: ios or android")
+    parser.addoption('--reset', action='store', default="0", help="Start with reset a simulator")
+
+
+def add_new_params_for_start(request):
+    args = request.config.invocation_params.args
+    if '--reset' in args:
+        platform[APP]['fullReset'] = True
+    return platform[APP]
 
 
 @pytest.fixture(scope="class")
 def driver(request):
-     appium_service = AppiumService()
-    appium_service.start()
-    start_emul(APP)
-    request.cls.driver = webdriver.Remote("http://localhost:4723/wd/hub", desired_capabilities=platform[APP])
-    request.cls.driver.start_recording_screen(timeLimit=1200, videoType="h264", videoQuality="high")
+    config = add_new_params_for_start(request)
+    reinstall_app()
+    request.cls.driver = webdriver.Remote("http://localhost:4723/wd/hub", desired_capabilities=config)
     yield
     request.cls.driver.quit()
+
+
+def start_service():
+    appium_service.start()
+    logging.info(msg='Appium is running? {}'.format(appium_service.is_running))
+    logging.info(msg='Appium is listening? {}'.format(appium_service.is_listening))
+
+
+def reinstall_app():
+    if APP == 'android':
+        os.system('$ANDROID_HOME/platform-tools/adb uninstall ru.test.app')
+    if APP == 'ios':
+        os.system('xcrun simctl uninstall booted org.test.demo.app')
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup():
+    running = appium_service.is_running
+    listening = appium_service.is_listening
+    if running or listening is False:
+        start_service()
+    start_emul(APP)
+    remove_test_dir()
+    yield
     appium_service.stop()
-    close_simulator(APP)
+    logging.info(msg='Appium is running? {}'.format(appium_service.is_running))
+    logging.info(msg='Appium is listening? {}'.format(appium_service.is_listening))
 
 
-# set up a hook to be able to check if a test has failed
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
-def pytest_runtest_makereport(item, call):
-    # execute all other hooks to obtain the report object
+def pytest_runtest_makereport(item):
     outcome = yield
     rep = outcome.get_result()
-
-    # set a report attribute for each phase of a call, which can
-    # be "setup", "call", "teardown"
-
     setattr(item, "rep_" + rep.when, rep)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def test_run_record(request):
+    request.cls.driver.start_recording_screen(timeLimit=1200, videoType="h264", videoQuality="high")
 
 
 @pytest.fixture(scope="function", autouse=True)
 def test_failed_check(request):
     yield
-    # request.node is an "item" because we use the default
-    # "function" scope
     if request.node.rep_setup.failed:
         print("setting up a test failed!", request.node.nodeid)
     elif request.node.rep_setup.passed:
         if request.node.rep_call.failed:
-            driver = request.cls.driver
-            video_raw_data = driver.stop_recording_screen()
+            video_raw_data = request.cls.driver.stop_recording_screen()
             take_record_video(request, video_raw_data)
             print("executing test failed", request.node.nodeid)
-
-
-def take_record_video(request, video_rawdata):
-    video_name = f'{request.fspath.purebasename}_{time.strftime("%Y_%m_%d_%H%M%S")}'
-    path_save = os.path.abspath("tests/output")
-    filepath = os.path.join(path_save, video_name + "_" + APP + ".mov")
-    with open(filepath, "wb+") as vd:
-        vd.write(base64.b64decode(video_rawdata))
-
-def pytest_collection_modifyitems(items):
-    for item in items:
-        # тест это словарь с марками testrail
-        #{ANDROID = {"test_fill": "C19322",}
-        if APP == "ПЛАТФОРМА":
-            tests = TEST
-        else:
-            tests = TEST
-        for testname in tests:
-            if item.originalname == testname:
-                item.add_marker(pytestrail.case(tests[testname]))
-
-def close_simulator(emulator):
-    if emulator == "android":
-        os.system('adb emu kill')
-    else:
-        os.system('killall Simulator')

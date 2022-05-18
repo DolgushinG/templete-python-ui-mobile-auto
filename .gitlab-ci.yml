@@ -1,0 +1,53 @@
+stages:
+  - test-ios-full
+  - test-android-full
+
+build-full-ios-test:
+ stage: test-ios-full
+ only:
+    - master
+ script:
+    - export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/jre
+    - export ANDROID_HOME=$HOME/Library/Android/sdk
+    - export AUTO_TESTS_HOME=$HOME/Desktop/mobile-sdk-autotests/
+    - export PATH=$ANDROID_HOME/platform-tools:$PATH
+    - export PATH=$ANDROID_HOME/tools:$PATH
+    - export PATH=$ANDROID_HOME/tools/bin:$PATH
+    - export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin:/opt/homebrew/bin"
+    - mkdir app
+    - cd tests/ && mkdir output && cd ..
+    - python3 -m venv virtual-env
+    - source virtual-env/bin/activate
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pytest tests/ --app ios --reruns 1
+ artifacts:
+    when: on_failure
+    paths:
+      - tests/output/**
+    expire_in: 1 day
+
+build-full-android-test:
+ stage: test-android-full
+ only:
+    - master
+ script:
+    - export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/jre
+    - export ANDROID_HOME=$HOME/Library/Android/sdk
+    - export AUTO_TESTS_HOME=$HOME/Desktop/mobile-sdk-autotests/
+    - export PATH=$ANDROID_HOME/platform-tools:$PATH
+    - export PATH=$ANDROID_HOME/tools:$PATH
+    - export PATH=$ANDROID_HOME/tools/bin:$PATH
+    - export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin:/opt/homebrew/bin"
+    - mkdir app
+    - cd tests/ && mkdir output && cd ..
+    - python3 -m venv virtual-env
+    - source virtual-env/bin/activate
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pytest tests/ --app android --reruns 1
+ artifacts:
+    when: on_failure
+    paths:
+      - tests/output/**
+    expire_in: 1 day    
