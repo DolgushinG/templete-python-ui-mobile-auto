@@ -62,3 +62,19 @@ TEMPLETE PROJECT UI MOBILE AUTOMATION - UAM
 - Селекторы автоматически определяют тип элемента xpath,id и так далее
 - Селекторы автоматически выбираются в зависимости от платформы
 - Этапы запуска тестов - tox - установка зависимостей tox - установка соединения - запуск симуляторов/эмуляторов - запуск тестов - остановка симуляторов/эмуляторов - отправка отчетов при флаге allure
+
+
+
+КОМАНДЫ ДЛЯ ЗАПУСКА
+# Запуск токс по env
+- tox -e some-env
+# Выполниться по очереди
+- tox -e some-env,some-env2
+# Выполниться параллельно
+- tox -e some-env,some-env2 -p auto --parallel-live
+----------
+# Pytest
+- --platform default android
+- pytest --platform ios
+- pytest --platform android
+- pytest tests/ 
