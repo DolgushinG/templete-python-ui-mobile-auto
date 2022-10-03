@@ -10,8 +10,10 @@ class PaymentPageLocators(BasePageLocator):
     """
     # TITLE
     # ====================================  IOS  ================================= ANDROID ================
-    PAYMENT_FIELD = select_element((By.XPATH, 'SELECTOR'),
-                                 (By.XPATH, 'SELECTOR'))
+    PAYMENT_FIELD = select_element(
+        ios=tools.set_type_selector('//*[contains(@label, \'some\')]'),
+        android=tools.set_type_selector('//*[contains(@text, \'some\')]'))
+
 
 """
     " = (By.XPATH, ''),
