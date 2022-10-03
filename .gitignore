@@ -1,0 +1,4 @@
+app/
+tests/output/allure/*
+tests/output/*
+logs/*

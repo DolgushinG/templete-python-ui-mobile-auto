@@ -1,9 +1,9 @@
 from selenium.webdriver.common.by import By
-
+from locators.base_page import BasePageLocator
 from main import select_element
 
 
-class PaymentPageLocators:
+class PaymentPageLocators(BasePageLocator):
     """
     FIRST ARGUMENT IOS
     SECOND ARGUMENT ANDROID

@@ -2,9 +2,12 @@ import pytest as pytest
 from pages.PaymentPage import PaymentPage
 
 
-@pytest.mark.usefixtures('driver')
 class Test:
-
+    @allure.epic("Example")
+    @allure.feature("Example")
+    @allure.title("Example")
+    @allure.description("Example")
+    @pytest.mark.somemark
     def test_fill(self):
         """
         describe

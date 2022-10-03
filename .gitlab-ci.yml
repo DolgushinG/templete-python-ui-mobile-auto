@@ -1,53 +1,231 @@
 stages:
-  - test-ios-full
-  - test-android-full
+  - start-simulator
+  - smoke-android-ios
+  - stop-simulator
 
-build-full-ios-test:
- stage: test-ios-full
- only:
-    - master
- script:
-    - export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/jre
-    - export ANDROID_HOME=$HOME/Library/Android/sdk
-    - export AUTO_TESTS_HOME=$HOME/Desktop/mobile-sdk-autotests/
-    - export PATH=$ANDROID_HOME/platform-tools:$PATH
-    - export PATH=$ANDROID_HOME/tools:$PATH
-    - export PATH=$ANDROID_HOME/tools/bin:$PATH
-    - export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin:/opt/homebrew/bin"
-    - mkdir app
-    - cd tests/ && mkdir output && cd ..
-    - python3 -m venv virtual-env
-    - source virtual-env/bin/activate
-    - pip install --upgrade pip
-    - pip install -r requirements.txt
-    - pytest tests/ --app ios --reruns 1
- artifacts:
+before_script:
+  - export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/jre
+  - export ANDROID_HOME=$HOME/Library/Android/sdk
+  - export AUTO_TESTS_HOME=$HOME/Desktop/mobile-sdk-autotests/
+  - export PATH=$ANDROID_HOME/platform-tools:$PATH
+  - export PATH=$ANDROID_HOME/tools:$PATH
+  - export PATH=$ANDROID_HOME/tools/bin:$PATH
+  - export PATH=/opt/homebrew/bin/:$PATH
+  - export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin:/opt/homebrew/bin"
+  - export ALLURE_ENDPOINT=$ALLURE_ENDPOINT
+  - export ALLURE_TOKEN=$ALLURE_TOKEN
+  - export ALLURE_PROJECT_ID=$ALLURE_PROJECT_ID
+  - mkdir app || true
+  - python3 -m venv virtual-env
+  - source virtual-env/bin/activate
+  - pip install --upgrade pip
+  - pip install -r requirements.txt
+
+emul-start-pixel-4-v12:
+  stage: start-simulator
+  except:
+    refs:
+      - merge_requests
+      - master
+  script:
+    - export DEVICE_NAME=Pixel_4_API_31
+    - export AVD_PORT=5554
+    - scripts/start_android_emulator.sh
+  artifacts:
     when: on_failure
     paths:
       - tests/output/**
+      - tests/logs/**
+      - screenshots/**
     expire_in: 1 day
+  tags:
+    - ios
+emul-stop-pixel-4-v12:
+  stage: stop-simulator
+  needs: [emul-start-pixel-4-v12, pixel-4-v12-and-iphone-11-v15-5]
+  except:
+    refs:
+      - merge_requests
+      - master
+  script:
+    - export UDID=emulator-5554
+    - export AVD_PORT=5554
+    - scripts/stop_android_emulator.sh
+  artifacts:
+    when: on_failure
+    paths:
+      - tests/output/**
+      - tests/logs/**
+      - screenshots/**
+    expire_in: 1 day
+  tags:
+    - ios
 
-build-full-android-test:
- stage: test-android-full
- only:
-    - master
+pixel-4-v12-and-iphone-11-v15-5:
+ stage: smoke-android-ios
+ allow_failure: true
+ needs: [emul-start-pixel-4-v12, sim-start-iphone-11-v15-5]
+ except:
+    refs:
+       - merge_requests
+       - master
+ variables:
+   ui: 'ui'
  script:
-    - export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/jre
-    - export ANDROID_HOME=$HOME/Library/Android/sdk
-    - export AUTO_TESTS_HOME=$HOME/Desktop/mobile-sdk-autotests/
-    - export PATH=$ANDROID_HOME/platform-tools:$PATH
-    - export PATH=$ANDROID_HOME/tools:$PATH
-    - export PATH=$ANDROID_HOME/tools/bin:$PATH
-    - export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin:/opt/homebrew/bin"
-    - mkdir app
-    - cd tests/ && mkdir output && cd ..
-    - python3 -m venv virtual-env
-    - source virtual-env/bin/activate
-    - pip install --upgrade pip
-    - pip install -r requirements.txt
-    - pytest tests/ --app android --reruns 1
+    - cd $AUTO_TESTS_HOME/app
+    - cp *.apk $CI_PROJECT_DIR/app
+    - cp -R *.app $CI_PROJECT_DIR/app
+    - cd $CI_PROJECT_DIR/
+    - tox -e ci-android-pixel-4-v12,ci-ios-11-v15-5 -p auto --parallel-live
+ after_script:
+   - ~/Desktop/allurectl upload --launch-name "$CI_COMMIT_BRANCH FULL" $CI_PROJECT_DIR/tests/output/allure-ci-android-pixel-4-v12
+   - ~/Desktop/allurectl upload --launch-name "$CI_COMMIT_BRANCH FULL" $CI_PROJECT_DIR/tests/output/allure-ci-ios-11-v15-5
  artifacts:
     when: on_failure
     paths:
       - tests/output/**
-    expire_in: 1 day    
+      - tests/logs/**
+      - screenshots/**
+    expire_in: 1 day
+ tags:
+    - ios
+pixel-4-XL-v12-and-iphone-8-v15-5:
+ stage: smoke-android-ios
+ allow_failure: true
+ needs: [emul-start-pixel-4-XL-v12, sim-start-iphone-8-v15-5]
+ except:
+    refs:
+       - merge_requests
+       - master
+ variables:
+   ui: 'ui'
+ script:
+    - cd $AUTO_TESTS_HOME/app
+    - cp *.apk $CI_PROJECT_DIR/app
+    - cp -R *.app $CI_PROJECT_DIR/app
+    - cd $CI_PROJECT_DIR/
+    - tox -e ci-android-pixel-4-XL-v12,ci-ios-8-v15-5 -p auto --parallel-live
+ after_script:
+   - ~/Desktop/allurectl upload --launch-name "$CI_COMMIT_BRANCH FULL" $CI_PROJECT_DIR/tests/output/allure-ci-android-pixel-4-XL-v12
+   - ~/Desktop/allurectl upload --launch-name "$CI_COMMIT_BRANCH FULL" $CI_PROJECT_DIR/tests/output/allure-ci-ios-8-v15-5
+ artifacts:
+    when: on_failure
+    paths:
+      - tests/output/**
+      - tests/logs/**
+      - screenshots/**
+    expire_in: 1 day
+ tags:
+    - ios
+
+emul-start-pixel-4-XL-v12:
+  stage: start-simulator
+  except:
+    refs:
+      - merge_requests
+      - master
+  script:
+    - export DEVICE_NAME=Pixel_4_XL_API_31
+    - export AVD_PORT=5556
+    - scripts/start_android_emulator.sh
+  artifacts:
+    when: on_failure
+    paths:
+      - tests/output/**
+      - tests/logs/**
+      - screenshots/**
+    expire_in: 1 day
+  tags:
+    - ios
+emul-stop-pixel-4-XL-v12:
+  stage: stop-simulator
+  needs: [emul-start-pixel-4-XL-v12, pixel-4-v12-and-iphone-11-v15-5]
+  except:
+    refs:
+      - merge_requests
+      - master
+  script:
+    - export UDID=emulator-5556
+    - export AVD_PORT=5556
+    - scripts/stop_android_emulator.sh
+  artifacts:
+    when: on_failure
+    paths:
+      - tests/output/**
+      - tests/logs/**
+      - screenshots/**
+    expire_in: 1 day
+  tags:
+    - ios
+
+sim-start-iphone-11-v15-5:
+ stage: start-simulator
+ except:
+    refs:
+       - merge_requests
+       - master
+ script:
+    - export UDID=
+    - scripts/start_ios_simulator.sh
+ artifacts:
+    paths:
+      - tests/output/**
+      - tests/logs/**
+    expire_in: 1 day
+ tags:
+    - ios
+sim-stop-iphone-11-v15-5:
+ stage: stop-simulator
+ needs: [pixel-4-v12-and-iphone-11-v15-5, sim-start-iphone-11-v15-5]
+ except:
+    refs:
+       - merge_requests
+       - master
+ script:
+   - export UDID=
+   - scripts/stop_ios_simulator.sh
+ artifacts:
+    paths:
+      - tests/output/**
+      - tests/logs/**
+    expire_in: 1 day
+ tags:
+    - ios
+
+sim-start-iphone-8-v15-5:
+ stage: start-simulator
+ except:
+    refs:
+       - merge_requests
+       - master
+ script:
+   - export UDID=
+   - scripts/start_ios_simulator.sh
+ artifacts:
+    when: on_failure
+    paths:
+      - tests/output/**
+      - tests/logs/**
+    expire_in: 1 day
+ tags:
+    - ios
+sim-stop-iphone-8-v15-5:
+ stage: stop-simulator
+ needs: [pixel-4-v12-and-iphone-11-v15-5, sim-start-iphone-8-v15-5]
+ except:
+    refs:
+       - merge_requests
+       - master
+ variables:
+   ui: 'ui'
+ script:
+   - export UDID=
+   - scripts/stop_ios_simulator.sh
+ artifacts:
+    when: on_failure
+    paths:
+      - tests/output/**
+      - tests/logs/**
+    expire_in: 1 day
+ tags:
+    - ios
